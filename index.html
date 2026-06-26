@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>网页表格提取</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --border: #e2e2de;
+    --border-strong: #c8c8c4;
+    --text: #1a1a18;
+    --text-muted: #6b6b68;
+    --accent: #2563eb;
+    --accent-bg: #eff6ff;
+    --accent-text: #1d4ed8;
+    --success: #16a34a;
+    --success-bg: #f0fdf4;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --warning-bg: #fffbeb;
+    --warning-text: #92400e;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --surface: #242422;
+      --border: #333330;
+      --border-strong: #4a4a46;
+      --text: #f0f0ee;
+      --text-muted: #8a8a86;
+      --accent: #3b82f6;
+      --accent-bg: #1e2d45;
+      --accent-text: #93c5fd;
+      --success: #4ade80;
+      --success-bg: #14261e;
+      --danger: #f87171;
+      --danger-bg: #2a1515;
+      --warning-bg: #2a2010;
+      --warning-text: #fbbf24;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+  }
+
+  header { margin-bottom: 32px; }
+  header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  header p { color: var(--text-muted); margin-top: 4px; font-size: 13px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  input[type="url"] {
+    flex: 1;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input[type="url"]:focus { border-color: var(--accent); }
+
+  textarea {
+    width: 100%;
+    height: 90px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: monospace;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+
+  button {
+    height: 38px;
+    padding: 0 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, border-color 0.1s;
+  }
+
+  button:hover { background: var(--bg); border-color: var(--accent); }
+  button:active { opacity: 0.8; }
+
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  button.primary:hover { opacity: 0.9; background: var(--accent); }
+
+  button.sm {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .proxy-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    min-height: 20px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border-strong);
+    flex-shrink: 0;
+  }
+
+  .dot.ok { background: var(--success); }
+  .dot.err { background: var(--danger); }
+  .dot.spin {
+    background: var(--accent);
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .notice {
+    font-size: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin-top: 10px;
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border: 1px solid #fcd34d33;
+  }
+
+  .divider {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 10px 0;
+    position: relative;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 24px);
+    height: 1px;
+    background: var(--border);
+  }
+
+  .divider::before { left: 0; }
+  .divider::after { right: 0; }
+
+  #status {
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    display: none;
+    margin-bottom: 16px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #status.show { display: flex; }
+  #status.info { background: var(--accent-bg); color: var(--accent-text); }
+  #status.ok { background: var(--success-bg); color: var(--success); }
+  #status.err { background: var(--danger-bg); color: var(--danger); }
+
+  .table-section { margin-bottom: 24px; }
+
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .table-label {
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 99px;
+    background: var(--accent-bg);
+    color: var(--accent-text);
+  }
+
+  .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: var(--bg);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 9px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg); }
+
+  #export-all {
+    display: none;
+    margin-bottom: 16px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  #export-all.show { display: flex; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>网页表格提取</h1>
+    <p>输入 URL 自动提取，或粘贴 HTML 源码手动解析，导出为 Excel</p>
+  </header>
+
+  <div class="card">
+    <div class="card-title">通过 URL 抓取</div>
+    <div class="input-row">
+      <input type="url" id="url" placeholder="https://example.com/page">
+      <button class="primary" onclick="fetchUrl()">抓取</button>
+    </div>
+    <div class="proxy-status">
+      <div class="dot" id="proxy-dot"></div>
+      <span id="proxy-label">点击「抓取」自动选择可用代理</span>
+    </div>
+    <div class="notice">JS 渲染的页面（如夸克、支付宝等）无法直接抓取，请用下方 HTML 粘贴方式</div>
+  </div>
+
+  <div class="divider">或</div>
+
+  <div class="card">
+    <div class="card-title">粘贴 HTML 源码</div>
+    <textarea id="html" placeholder="在浏览器按 Ctrl+U 打开源码页，全选复制后粘贴到这里…"></textarea>
+    <div style="margin-top:8px">
+      <button onclick="parseHtml(document.getElementById('html').value)">解析 HTML</button>
+    </div>
+  </div>
+
+  <div id="status"></div>
+
+  <button id="export-all" class="primary" onclick="exportAll()">导出全部表格为一个 xlsx</button>
+
+  <div id="results"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
